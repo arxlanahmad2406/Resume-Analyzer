@@ -8,6 +8,8 @@ scikit-learn = "*"
 flask = "*"
 pypdf2 = "*"
 python-docx = "*"
+pywebview = "*"
+pyinstaller = "*"
 
 [dev-packages]
 

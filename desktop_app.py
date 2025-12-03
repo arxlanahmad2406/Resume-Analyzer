@@ -1,14 +1,25 @@
 import re
-import json
+import sys
+import os
+import threading
+import webview
 from flask import Flask, render_template, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import PyPDF2
 import docx
-import io
 from collections import Counter
 
-app = Flask(__name__)
+# Get the correct path for templates when running as bundled app
+if getattr(sys, 'frozen', False):
+    # Running as compiled
+    bundle_dir = sys._MEIPASS
+else:
+    # Running in development
+    bundle_dir = os.path.dirname(os.path.abspath(__file__))
+
+template_folder = os.path.join(bundle_dir, 'templates')
+app = Flask(__name__, template_folder=template_folder)
 
 # Common word variations/synonyms (generic, not role-specific)
 SYNONYMS = {
@@ -68,7 +79,6 @@ STOP_WORDS = {
 def clean_text(text):
     """Clean and normalize text"""
     text = text.lower()
-    # Keep alphanumeric, spaces, and some special chars used in tech (., +, #, /)
     text = re.sub(r"[^a-zA-Z0-9.+#/ ]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
@@ -87,17 +97,15 @@ def expand_with_synonyms(text):
     return ' '.join(expanded_words)
 
 def extract_important_terms(text):
-    """Extract important/meaningful terms from text (skills, technologies, requirements)"""
+    """Extract important/meaningful terms from text"""
     text_lower = text.lower()
     terms = set()
     
-    # Extract individual words (filter stop words and short words)
     words = re.findall(r'\b[a-zA-Z0-9.+#]+\b', text_lower)
     for word in words:
         if word not in STOP_WORDS and len(word) > 2:
             terms.add(word)
     
-    # Extract bigrams and trigrams for compound terms
     words_list = [w for w in words if w not in STOP_WORDS and len(w) > 1]
     for i in range(len(words_list) - 1):
         bigram = f"{words_list[i]} {words_list[i+1]}"
@@ -113,14 +121,8 @@ def extract_skills_and_requirements(jd_text):
     """Dynamically extract skills and requirements from JD"""
     jd_lower = jd_text.lower()
     
-    extracted = {
-        'skills': set(),
-        'experience': set(),
-        'education': set(),
-        'tools': set(),
-    }
+    extracted = {'skills': set(), 'experience': set(), 'education': set(), 'tools': set()}
     
-    # Common patterns for skills sections
     skill_patterns = [
         r'(?:skills?|requirements?|qualifications?|must have|required|proficien\w+)[:\s]+([^.\n]+)',
         r'(?:experience with|knowledge of|expertise in|proficient in|familiar with)[:\s]*([^.\n]+)',
@@ -134,15 +136,11 @@ def extract_skills_and_requirements(jd_text):
                 if word not in STOP_WORDS and len(word) > 2:
                     extracted['skills'].add(word)
     
-    # Extract years of experience
     exp_pattern = r'(\d+)\+?\s*(?:years?|yrs?)'
-    exp_matches = re.findall(exp_pattern, jd_lower)
-    extracted['experience'].update(exp_matches)
+    extracted['experience'].update(re.findall(exp_pattern, jd_lower))
     
-    # Extract education requirements
     edu_pattern = r"\b(bachelor'?s?|master'?s?|phd|doctorate|degree|bs|ms|ba|ma|mba|bsc|msc)\b"
-    edu_matches = re.findall(edu_pattern, jd_lower)
-    extracted['education'].update(edu_matches)
+    extracted['education'].update(re.findall(edu_pattern, jd_lower))
     
     return extracted
 
@@ -151,14 +149,11 @@ def calculate_term_overlap(jd_terms, resume_terms):
     if not jd_terms:
         return 0
     
-    # Direct matches
     direct_matches = jd_terms.intersection(resume_terms)
     
-    # Synonym-expanded matches
     expanded_matches = set()
     for jd_term in jd_terms:
         for resume_term in resume_terms:
-            # Check if terms are synonyms
             for base, synonyms in SYNONYMS.items():
                 all_forms = {base} | set(synonyms)
                 if jd_term in all_forms and resume_term in all_forms:
@@ -173,15 +168,13 @@ def calculate_relevancy(jd, resume):
     jd_clean = clean_text(jd)
     resume_clean = clean_text(resume)
     
-    # Expand both texts with synonyms
     jd_expanded = expand_with_synonyms(jd_clean)
     resume_expanded = expand_with_synonyms(resume_clean)
     
     # 1. TF-IDF Cosine Similarity (35% weight)
-    # This captures overall semantic similarity
     vectorizer = TfidfVectorizer(
         stop_words='english', 
-        ngram_range=(1, 3),  # Unigrams, bigrams, trigrams
+        ngram_range=(1, 3),
         max_features=10000,
         min_df=1
     )
@@ -189,13 +182,11 @@ def calculate_relevancy(jd, resume):
     tfidf_score = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
     
     # 2. Important terms overlap (35% weight)
-    # Extract and compare important terms from both documents
     jd_terms = extract_important_terms(jd_expanded)
     resume_terms = extract_important_terms(resume_expanded)
     terms_overlap_score = calculate_term_overlap(jd_terms, resume_terms)
     
     # 3. Skills and requirements matching (30% weight)
-    # Dynamically extract skills from JD and check against resume
     jd_requirements = extract_skills_and_requirements(jd)
     resume_text_lower = resume.lower()
     
@@ -207,7 +198,6 @@ def calculate_relevancy(jd, resume):
             if skill in resume_text_lower:
                 skills_found += 1
             else:
-                # Check synonyms
                 for base, synonyms in SYNONYMS.items():
                     if skill == base or skill in synonyms:
                         all_forms = [base] + list(synonyms)
@@ -216,7 +206,7 @@ def calculate_relevancy(jd, resume):
                             break
         skills_score = skills_found / total_skills
     else:
-        skills_score = terms_overlap_score  # Fallback to terms overlap
+        skills_score = terms_overlap_score
     
     # Combined weighted score
     raw_score = (
@@ -225,12 +215,7 @@ def calculate_relevancy(jd, resume):
         (skills_score * 0.30)
     )
     
-    # Scale to percentage (0-100)
-    # Use a curve that spreads scores more naturally
-    # sqrt scaling boosts lower scores while keeping high scores reasonable
     final_score = (raw_score ** 0.6) * 100
-    
-    # Ensure score is within bounds
     final_score = max(0, min(95, final_score))
     
     return round(final_score, 2)
@@ -305,5 +290,21 @@ def analyze():
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
+def start_flask():
+    app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Start Flask in a background thread
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+    
+    # Create native window
+    webview.create_window(
+        'Resume Relevancy Analyzer',
+        'http://127.0.0.1:5000',
+        width=1200,
+        height=800,
+        resizable=True,
+        min_size=(800, 600)
+    )
+    webview.start()
