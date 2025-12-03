@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Relevancy Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .panel h2 {
+            color: #1f2937;
+            margin-bottom: 16px;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel h2 .icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: #f9fafb;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f1ff;
+        }
+
+        .upload-area.has-file {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            color: #9ca3af;
+            margin-bottom: 12px;
+        }
+
+        .upload-area.has-file .upload-icon {
+            color: #22c55e;
+        }
+
+        .upload-text {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .upload-text span {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .file-name {
+            margin-top: 8px;
+            color: #22c55e;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .file-types {
+            margin-top: 8px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-container {
+            margin-top: 24px;
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .result-category {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .result-description {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .loading.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Resume Relevancy Analyzer</h1>
+        
+        <form id="analyzeForm" class="main-content">
+            <!-- Left Panel - Job Description -->
+            <div class="panel">
+                <h2>
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Job Description
+                </h2>
+                <textarea 
+                    id="jobDescription" 
+                    name="job_description" 
+                    placeholder="Paste the job description here..."
+                    required
+                ></textarea>
+            </div>
+
+            <!-- Right Panel - Resume Upload -->
+            <div class="panel">
+                <h2>
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    Upload Resume
+                </h2>
+                
+                <div class="upload-area" id="uploadArea">
+                    <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="upload-text"><span>Click to upload</span> or drag and drop</p>
+                    <p class="file-types">PDF, DOCX, or TXT</p>
+                    <p class="file-name" id="fileName"></p>
+                </div>
+                <input type="file" id="fileInput" name="resume" accept=".pdf,.docx,.txt">
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    Analyze Relevancy
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>Analyzing...</span>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
+
+                <div class="result-container" id="resultContainer">
+                    <div class="result-card">
+                        <div class="score-circle" id="scoreCircle">0%</div>
+                        <div class="result-category" id="resultCategory">-</div>
+                        <p class="result-description">Based on TF-IDF cosine similarity analysis</p>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const form = document.getElementById('analyzeForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultContainer = document.getElementById('resultContainer');
+        const scoreCircle = document.getElementById('scoreCircle');
+        const resultCategory = document.getElementById('resultCategory');
+
+        // File upload handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                fileInput.files = files;
+                updateFileName(files[0].name);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                updateFileName(e.target.files[0].name);
+            }
+        });
+
+        function updateFileName(name) {
+            fileName.textContent = name;
+            uploadArea.classList.add('has-file');
+        }
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Reset states
+            errorMessage.classList.remove('show');
+            resultContainer.classList.remove('show');
+            loading.classList.add('show');
+            submitBtn.disabled = true;
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'An error occurred');
+                }
+
+                // Show results
+                scoreCircle.textContent = data.relevancy + '%';
+                scoreCircle.style.background = data.color;
+                resultCategory.textContent = data.category;
+                resultCategory.style.color = data.color;
+                resultContainer.classList.add('show');
+
+            } catch (error) {
+                errorMessage.textContent = error.message;
+                errorMessage.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
