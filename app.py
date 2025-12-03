@@ -14,13 +14,17 @@ app = Flask(__name__)
 SYNONYMS = {
     # Verbs
     'develop': ['developing', 'developed', 'development', 'build', 'building', 'built', 'create', 'creating', 'created'],
-    'manage': ['managing', 'managed', 'management', 'lead', 'leading', 'led', 'leadership', 'coordinate', 'coordinating'],
+    'manage': ['managing', 'managed', 'management', 'lead', 'leading', 'led', 'leadership', 'coordinate', 'coordinating', 'handle', 'handling', 'handled'],
     'design': ['designing', 'designed', 'architect', 'architecting', 'architected'],
     'implement': ['implementing', 'implemented', 'implementation', 'deploy', 'deploying', 'deployed'],
-    'analyze': ['analyzing', 'analyzed', 'analysis', 'analyse', 'analysing', 'analysed'],
-    'optimize': ['optimizing', 'optimized', 'optimization', 'improve', 'improving', 'improved'],
+    'analyze': ['analyzing', 'analyzed', 'analysis', 'analyse', 'analysing', 'analysed', 'review', 'reviewing', 'reviewed'],
+    'optimize': ['optimizing', 'optimized', 'optimization', 'improve', 'improving', 'improved', 'enhance', 'enhancing'],
     'test': ['testing', 'tested', 'qa', 'quality assurance'],
     'maintain': ['maintaining', 'maintained', 'maintenance', 'support', 'supporting', 'supported'],
+    'process': ['processing', 'processed', 'handle', 'handling', 'handled'],
+    'prepare': ['preparing', 'prepared', 'preparation'],
+    'report': ['reporting', 'reported', 'reports'],
+    'assist': ['assisting', 'assisted', 'assistance', 'help', 'helping', 'support', 'supporting'],
     
     # Tech terms
     'frontend': ['front-end', 'front end', 'ui', 'user interface', 'client-side'],
@@ -31,20 +35,35 @@ SYNONYMS = {
     'devops': ['ci/cd', 'cicd', 'continuous integration', 'continuous deployment'],
     'ml': ['machine learning', 'ai', 'artificial intelligence', 'deep learning'],
     
+    # Finance/Accounting terms
+    'finance': ['financial', 'finances', 'fiscal'],
+    'account': ['accounts', 'accounting', 'accountant', 'accountancy'],
+    'invoice': ['invoices', 'invoicing', 'billing', 'bill', 'bills'],
+    'payment': ['payments', 'pay', 'paying', 'payroll', 'payable', 'receivable'],
+    'expense': ['expenses', 'expenditure', 'expenditures', 'costs', 'cost'],
+    'budget': ['budgets', 'budgeting', 'budgeted'],
+    'audit': ['audits', 'auditing', 'audited', 'auditor'],
+    'tax': ['taxes', 'taxation', 'taxable'],
+    'reconcile': ['reconciliation', 'reconciling', 'reconciled'],
+    'ledger': ['ledgers', 'general ledger', 'gl'],
+    'bookkeeping': ['bookkeeper', 'books'],
+    
     # Experience
-    'experience': ['experienced', 'expertise', 'proficient', 'proficiency', 'skilled', 'skills'],
+    'experience': ['experienced', 'expertise', 'proficient', 'proficiency', 'skilled', 'skills', 'background'],
     'senior': ['sr', 'lead', 'principal', 'staff'],
     'junior': ['jr', 'entry level', 'entry-level', 'associate'],
     
     # Education
-    'bachelor': ['bachelors', "bachelor's", 'bs', 'ba', 'bsc', 'undergraduate'],
+    'bachelor': ['bachelors', "bachelor's", 'bs', 'ba', 'bsc', 'undergraduate', 'degree'],
     'master': ['masters', "master's", 'ms', 'ma', 'msc', 'graduate'],
     'phd': ['doctorate', 'doctoral', 'ph.d'],
     
     # Soft skills
-    'communicate': ['communication', 'communicating', 'interpersonal'],
-    'collaborate': ['collaboration', 'collaborating', 'teamwork', 'team player'],
+    'communicate': ['communication', 'communicating', 'interpersonal', 'correspondence'],
+    'collaborate': ['collaboration', 'collaborating', 'teamwork', 'team player', 'cooperative'],
     'problem-solving': ['problem solving', 'analytical', 'troubleshoot', 'troubleshooting'],
+    'organize': ['organized', 'organisation', 'organization', 'organisational', 'organizational'],
+    'detail': ['details', 'detailed', 'detail-oriented', 'meticulous', 'accuracy', 'accurate'],
 }
 
 # Stop words to filter out common non-meaningful words
@@ -122,8 +141,9 @@ def extract_skills_and_requirements(jd_text):
     
     # Common patterns for skills sections
     skill_patterns = [
-        r'(?:skills?|requirements?|qualifications?|must have|required|proficien\w+)[:\s]+([^.\n]+)',
-        r'(?:experience with|knowledge of|expertise in|proficient in|familiar with)[:\s]*([^.\n]+)',
+        r'(?:skills?|requirements?|qualifications?|must have|required|proficien\w+|looking for|you\'ll be)[:\s-]+([^.\n]+)',
+        r'(?:experience (?:with|in)|knowledge of|expertise in|proficient in|familiar(?:ity)? with)[:\s]*([^.\n]+)',
+        r'(?:responsible for|working on|you will)[:\s]*([^.\n]+)',
     ]
     
     for pattern in skill_patterns:
@@ -134,13 +154,25 @@ def extract_skills_and_requirements(jd_text):
                 if word not in STOP_WORDS and len(word) > 2:
                     extracted['skills'].add(word)
     
+    # Extract specific tools/software mentioned (capitalized words or known patterns)
+    tool_patterns = [
+        r'\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b',  # Capitalized words (likely tools/products)
+        r'\b(xero|quickbooks|sage|stripe|hubdoc|excel|word|powerpoint|sap|oracle|salesforce|slack|zoom|asana|jira|trello)\b',
+    ]
+    
+    for pattern in tool_patterns:
+        matches = re.findall(pattern, jd_text, re.IGNORECASE)
+        for match in matches:
+            if match.lower() not in STOP_WORDS and len(match) > 2:
+                extracted['tools'].add(match.lower())
+    
     # Extract years of experience
     exp_pattern = r'(\d+)\+?\s*(?:years?|yrs?)'
     exp_matches = re.findall(exp_pattern, jd_lower)
     extracted['experience'].update(exp_matches)
     
     # Extract education requirements
-    edu_pattern = r"\b(bachelor'?s?|master'?s?|phd|doctorate|degree|bs|ms|ba|ma|mba|bsc|msc)\b"
+    edu_pattern = r"\b(bachelor'?s?|master'?s?|phd|doctorate|degree|bs|ms|ba|ma|mba|bsc|msc|cpa|acca|cima|aca)\b"
     edu_matches = re.findall(edu_pattern, jd_lower)
     extracted['education'].update(edu_matches)
     
@@ -168,6 +200,25 @@ def calculate_term_overlap(jd_terms, resume_terms):
     total_matches = direct_matches | expanded_matches
     return len(total_matches) / len(jd_terms)
 
+def extract_key_nouns(text):
+    """Extract key nouns and noun phrases that are likely important terms"""
+    text_lower = text.lower()
+    key_terms = set()
+    
+    # Extract words that appear after key indicators
+    indicator_patterns = [
+        r'(?:experience in|with|using)\s+([a-zA-Z0-9]+)',
+        r'(?:knowledge of|expertise in)\s+([a-zA-Z0-9]+)',
+        r'(?:proficient in|skilled in)\s+([a-zA-Z0-9]+)',
+        r'(?:familiar with)\s+([a-zA-Z0-9]+)',
+    ]
+    
+    for pattern in indicator_patterns:
+        matches = re.findall(pattern, text_lower)
+        key_terms.update(matches)
+    
+    return key_terms
+
 def calculate_relevancy(jd, resume):
     """Calculate relevancy score between JD and resume using multiple factors"""
     jd_clean = clean_text(jd)
@@ -177,58 +228,77 @@ def calculate_relevancy(jd, resume):
     jd_expanded = expand_with_synonyms(jd_clean)
     resume_expanded = expand_with_synonyms(resume_clean)
     
-    # 1. TF-IDF Cosine Similarity (35% weight)
-    # This captures overall semantic similarity
+    # 1. TF-IDF Cosine Similarity (30% weight)
     vectorizer = TfidfVectorizer(
         stop_words='english', 
-        ngram_range=(1, 3),  # Unigrams, bigrams, trigrams
+        ngram_range=(1, 3),
         max_features=10000,
         min_df=1
     )
     vectors = vectorizer.fit_transform([jd_expanded, resume_expanded])
     tfidf_score = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
     
-    # 2. Important terms overlap (35% weight)
-    # Extract and compare important terms from both documents
+    # 2. Important terms overlap (25% weight)
     jd_terms = extract_important_terms(jd_expanded)
     resume_terms = extract_important_terms(resume_expanded)
     terms_overlap_score = calculate_term_overlap(jd_terms, resume_terms)
     
-    # 3. Skills and requirements matching (30% weight)
-    # Dynamically extract skills from JD and check against resume
+    # 3. Skills and requirements matching (25% weight)
     jd_requirements = extract_skills_and_requirements(jd)
     resume_text_lower = resume.lower()
+    resume_expanded_lower = resume_expanded.lower()
     
+    all_jd_items = jd_requirements['skills'] | jd_requirements['tools']
     skills_found = 0
-    total_skills = len(jd_requirements['skills'])
+    total_skills = len(all_jd_items)
     
     if total_skills > 0:
-        for skill in jd_requirements['skills']:
-            if skill in resume_text_lower:
+        for skill in all_jd_items:
+            skill_lower = skill.lower()
+            # Direct match
+            if skill_lower in resume_text_lower or skill_lower in resume_expanded_lower:
                 skills_found += 1
             else:
                 # Check synonyms
+                found = False
                 for base, synonyms in SYNONYMS.items():
-                    if skill == base or skill in synonyms:
-                        all_forms = [base] + list(synonyms)
-                        if any(form in resume_text_lower for form in all_forms):
+                    if skill_lower == base or skill_lower in [s.lower() for s in synonyms]:
+                        all_forms = [base] + [s.lower() for s in synonyms]
+                        if any(form in resume_text_lower or form in resume_expanded_lower for form in all_forms):
                             skills_found += 1
+                            found = True
                             break
+                if not found:
+                    # Partial match (skill appears as part of a word)
+                    if len(skill_lower) > 3 and any(skill_lower in word for word in resume_text_lower.split()):
+                        skills_found += 0.5
         skills_score = skills_found / total_skills
     else:
-        skills_score = terms_overlap_score  # Fallback to terms overlap
+        skills_score = terms_overlap_score
+    
+    # 4. Direct keyword presence (20% weight)
+    # Check how many unique JD words appear in resume
+    jd_words = set(w for w in jd_clean.split() if w not in STOP_WORDS and len(w) > 3)
+    resume_words = set(w for w in resume_clean.split() if len(w) > 2)
+    resume_expanded_words = set(resume_expanded_lower.split())
+    
+    if jd_words:
+        direct_matches = sum(1 for w in jd_words if w in resume_words or w in resume_expanded_words)
+        keyword_score = direct_matches / len(jd_words)
+    else:
+        keyword_score = 0
     
     # Combined weighted score
     raw_score = (
-        (tfidf_score * 0.35) +
-        (terms_overlap_score * 0.35) +
-        (skills_score * 0.30)
+        (tfidf_score * 0.30) +
+        (terms_overlap_score * 0.25) +
+        (skills_score * 0.25) +
+        (keyword_score * 0.20)
     )
     
-    # Scale to percentage (0-100)
-    # Use a curve that spreads scores more naturally
-    # sqrt scaling boosts lower scores while keeping high scores reasonable
-    final_score = (raw_score ** 0.6) * 100
+    # Scale to percentage with adjusted curve
+    # Use power of 0.5 (square root) for better spread
+    final_score = (raw_score ** 0.5) * 100
     
     # Ensure score is within bounds
     final_score = max(0, min(95, final_score))

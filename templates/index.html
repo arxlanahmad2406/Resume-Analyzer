@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Relevancy Analyzer</title>
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
+
     <style>
         * {
             margin: 0;
@@ -28,7 +31,7 @@
             color: white;
             margin-bottom: 30px;
             font-size: 2.5rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .main-content {
@@ -47,7 +50,7 @@
             background: white;
             border-radius: 16px;
             padding: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
         }
 
         .panel h2 {
@@ -97,7 +100,8 @@
             justify-content: center;
         }
 
-        .upload-area:hover, .upload-area.dragover {
+        .upload-area:hover,
+        .upload-area.dragover {
             border-color: #667eea;
             background: #f0f1ff;
         }
@@ -197,7 +201,7 @@
             font-size: 2.5rem;
             font-weight: 700;
             color: white;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
         }
 
         .result-category {
@@ -247,43 +251,47 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>📄 Resume Relevancy Analyzer</h1>
-        
+
         <form id="analyzeForm" class="main-content">
             <!-- Left Panel - Job Description -->
             <div class="panel">
                 <h2>
                     <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
                     </svg>
                     Job Description
                 </h2>
-                <textarea 
-                    id="jobDescription" 
-                    name="job_description" 
-                    placeholder="Paste the job description here..."
-                    required
-                ></textarea>
+                <textarea id="jobDescription" name="job_description" placeholder="Paste the job description here..."
+                    required></textarea>
             </div>
 
             <!-- Right Panel - Resume Upload -->
             <div class="panel">
                 <h2>
                     <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                     </svg>
                     Upload Resume
                 </h2>
-                
+
                 <div class="upload-area" id="uploadArea">
                     <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                        </path>
                     </svg>
                     <p class="upload-text"><span>Click to upload</span> or drag and drop</p>
                     <p class="file-types">PDF, DOCX, or TXT</p>
@@ -361,7 +369,7 @@
         // Form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             // Reset states
             errorMessage.classList.remove('show');
             resultContainer.classList.remove('show');
@@ -399,4 +407,5 @@
         });
     </script>
 </body>
+
 </html>
