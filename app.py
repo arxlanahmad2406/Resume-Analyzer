@@ -1,14 +1,27 @@
 import re
 import json
+import os
+import io
+import numpy as np
 from flask import Flask, render_template, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import PyPDF2
 import docx
-import io
-from collections import Counter
+from openai import OpenAI
+from dotenv import load_dotenv
+import logging
+
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Initialize API clients
+openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 # Common word variations/synonyms (generic, not role-specific)
 SYNONYMS = {
@@ -219,16 +232,134 @@ def extract_key_nouns(text):
     
     return key_terms
 
+def get_embedding(text):
+    """Get OpenAI embedding for text"""
+    max_chars = 25000
+    if len(text) > max_chars:
+        text = text[:max_chars]
+    
+    response = openai_client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text
+    )
+    
+    # Log token usage
+    if hasattr(response, 'usage'):
+        logger.info(f"[OpenAI Embedding] Input tokens: {response.usage.prompt_tokens}, Total tokens: {response.usage.total_tokens}")
+    
+    return response.data[0].embedding
+
+def cosine_sim(vec1, vec2):
+    """Calculate cosine similarity between two vectors"""
+    vec1 = np.array(vec1)
+    vec2 = np.array(vec2)
+    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+def get_analysis_prompt(jd, resume):
+    """Generate the analysis prompt for LLM"""
+    return f"""You are an expert HR recruiter and resume analyst. Analyze how well this resume matches the job description.
+
+JOB DESCRIPTION:
+{jd[:4000]}
+
+RESUME:
+{resume[:4000]}
+
+Provide a JSON response with:
+1. "score": A relevancy score from 0-100 (be realistic - 70+ means strong match, 50-70 moderate, below 50 weak)
+2. "matched_skills": List of skills/requirements from JD found in resume
+3. "missing_skills": List of important skills/requirements from JD NOT found in resume  
+4. "experience_match": How well the experience level matches ("strong", "moderate", "weak")
+5. "summary": One sentence summary of the match
+
+Respond ONLY with valid JSON, no markdown or extra text."""
+
+def analyze_with_openai(jd, resume):
+    """Use OpenAI GPT to analyze resume-JD match"""
+    prompt = get_analysis_prompt(jd, resume)
+    
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        response_format={"type": "json_object"}
+    )
+    
+    # Log token usage
+    usage = response.usage
+    logger.info(f"[OpenAI GPT-4o-mini] Input tokens: {usage.prompt_tokens}, Output tokens: {usage.completion_tokens}, Total: {usage.total_tokens}")
+    
+    return json.loads(response.choices[0].message.content)
+
+def analyze_with_llm(jd, resume):
+    """Analyze with OpenAI"""
+    try:
+        logger.info("Attempting analysis with OpenAI...")
+        result = analyze_with_openai(jd, resume)
+        logger.info("OpenAI analysis successful")
+        return result, "openai"
+    except Exception as e:
+        logger.error(f"OpenAI failed: {e}")
+        raise Exception(f"OpenAI API failed: {e}")
+
 def calculate_relevancy(jd, resume):
-    """Calculate relevancy score between JD and resume using multiple factors"""
+    """Calculate relevancy score using embeddings + LLM analysis"""
+    try:
+        # Method 1: Semantic similarity using OpenAI embeddings (40% weight)
+        try:
+            jd_embedding = get_embedding(jd)
+            resume_embedding = get_embedding(resume)
+            embedding_similarity = cosine_sim(jd_embedding, resume_embedding)
+            logger.info(f"Embedding similarity: {embedding_similarity:.4f}")
+        except Exception as e:
+            logger.warning(f"Embedding failed, using fallback: {e}")
+            embedding_similarity = 0.5  # Neutral fallback
+        
+        # Method 2: LLM analysis for detailed matching (60% weight)
+        llm_analysis, provider = analyze_with_llm(jd, resume)
+        llm_score = llm_analysis.get('score', 50) / 100
+        logger.info(f"LLM score from {provider}: {llm_score * 100:.1f}%")
+        
+        # Combined score
+        final_score = (embedding_similarity * 0.40 + llm_score * 0.60) * 100
+        
+        # Ensure bounds
+        final_score = max(0, min(95, final_score))
+        
+        logger.info(f"Final relevancy score: {final_score:.2f}%")
+        
+        # Return score along with analysis details
+        return {
+            'score': round(final_score, 2),
+            'matched_skills': llm_analysis.get('matched_skills', []),
+            'missing_skills': llm_analysis.get('missing_skills', []),
+            'experience_match': llm_analysis.get('experience_match', 'unknown'),
+            'summary': llm_analysis.get('summary', ''),
+            'provider': provider
+        }
+        
+    except Exception as e:
+        logger.error(f"All LLM APIs failed: {e}")
+        # Fallback to traditional method
+        logger.info("Using traditional TF-IDF fallback method")
+        fallback_score = calculate_relevancy_fallback(jd, resume)
+        return {
+            'score': fallback_score,
+            'matched_skills': [],
+            'missing_skills': [],
+            'experience_match': 'unknown',
+            'summary': 'Analysis performed using traditional matching (API unavailable)',
+            'provider': 'fallback'
+        }
+
+def calculate_relevancy_fallback(jd, resume):
+    """Fallback relevancy calculation without OpenAI"""
     jd_clean = clean_text(jd)
     resume_clean = clean_text(resume)
     
-    # Expand both texts with synonyms
     jd_expanded = expand_with_synonyms(jd_clean)
     resume_expanded = expand_with_synonyms(resume_clean)
     
-    # 1. TF-IDF Cosine Similarity (30% weight)
     vectorizer = TfidfVectorizer(
         stop_words='english', 
         ngram_range=(1, 3),
@@ -238,15 +369,12 @@ def calculate_relevancy(jd, resume):
     vectors = vectorizer.fit_transform([jd_expanded, resume_expanded])
     tfidf_score = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
     
-    # 2. Important terms overlap (25% weight)
     jd_terms = extract_important_terms(jd_expanded)
     resume_terms = extract_important_terms(resume_expanded)
     terms_overlap_score = calculate_term_overlap(jd_terms, resume_terms)
     
-    # 3. Skills and requirements matching (25% weight)
     jd_requirements = extract_skills_and_requirements(jd)
     resume_text_lower = resume.lower()
-    resume_expanded_lower = resume_expanded.lower()
     
     all_jd_items = jd_requirements['skills'] | jd_requirements['tools']
     skills_found = 0
@@ -254,53 +382,14 @@ def calculate_relevancy(jd, resume):
     
     if total_skills > 0:
         for skill in all_jd_items:
-            skill_lower = skill.lower()
-            # Direct match
-            if skill_lower in resume_text_lower or skill_lower in resume_expanded_lower:
+            if skill.lower() in resume_text_lower:
                 skills_found += 1
-            else:
-                # Check synonyms
-                found = False
-                for base, synonyms in SYNONYMS.items():
-                    if skill_lower == base or skill_lower in [s.lower() for s in synonyms]:
-                        all_forms = [base] + [s.lower() for s in synonyms]
-                        if any(form in resume_text_lower or form in resume_expanded_lower for form in all_forms):
-                            skills_found += 1
-                            found = True
-                            break
-                if not found:
-                    # Partial match (skill appears as part of a word)
-                    if len(skill_lower) > 3 and any(skill_lower in word for word in resume_text_lower.split()):
-                        skills_found += 0.5
         skills_score = skills_found / total_skills
     else:
         skills_score = terms_overlap_score
     
-    # 4. Direct keyword presence (20% weight)
-    # Check how many unique JD words appear in resume
-    jd_words = set(w for w in jd_clean.split() if w not in STOP_WORDS and len(w) > 3)
-    resume_words = set(w for w in resume_clean.split() if len(w) > 2)
-    resume_expanded_words = set(resume_expanded_lower.split())
-    
-    if jd_words:
-        direct_matches = sum(1 for w in jd_words if w in resume_words or w in resume_expanded_words)
-        keyword_score = direct_matches / len(jd_words)
-    else:
-        keyword_score = 0
-    
-    # Combined weighted score
-    raw_score = (
-        (tfidf_score * 0.30) +
-        (terms_overlap_score * 0.25) +
-        (skills_score * 0.25) +
-        (keyword_score * 0.20)
-    )
-    
-    # Scale to percentage with adjusted curve
-    # Use power of 0.5 (square root) for better spread
+    raw_score = (tfidf_score * 0.4) + (terms_overlap_score * 0.3) + (skills_score * 0.3)
     final_score = (raw_score ** 0.5) * 100
-    
-    # Ensure score is within bounds
     final_score = max(0, min(95, final_score))
     
     return round(final_score, 2)
@@ -352,7 +441,8 @@ def analyze():
         if not resume_text.strip():
             return jsonify({'error': 'Could not extract text from resume'}), 400
         
-        relevancy = calculate_relevancy(job_description, resume_text)
+        result = calculate_relevancy(job_description, resume_text)
+        relevancy = result['score']
         
         if relevancy > 70:
             category = "Strong Match"
@@ -367,7 +457,12 @@ def analyze():
         return jsonify({
             'relevancy': relevancy,
             'category': category,
-            'color': color
+            'color': color,
+            'matched_skills': result['matched_skills'],
+            'missing_skills': result['missing_skills'],
+            'experience_match': result['experience_match'],
+            'summary': result['summary'],
+            'provider': result['provider']
         })
     
     except ValueError as e:

@@ -4,12 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-scikit-learn = "*"
 flask = "*"
+scikit-learn = "*"
 pypdf2 = "*"
 python-docx = "*"
 pywebview = "*"
 pyinstaller = "*"
+openai = "*"
+python-dotenv = "*"
+numpy = "*"
 
 [dev-packages]
 

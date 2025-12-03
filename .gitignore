@@ -27,6 +27,8 @@ ENV/
 env/
 .env
 
+!.env.sample
+
 # Pipenv
 Pipfile.lock
 

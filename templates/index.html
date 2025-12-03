@@ -215,6 +215,135 @@
             font-size: 14px;
         }
 
+        .result-summary {
+            background: #f0f9ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin: 20px 0;
+            text-align: left;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: #374151;
+        }
+
+        .details-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .details-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .details-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .details-table th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .details-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+        .details-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .details-table tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            margin: 2px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .skill-matched {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .skill-missing {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .experience-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: capitalize;
+        }
+
+        .experience-strong {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .experience-moderate {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .experience-weak {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .provider-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #e0e7ff;
+            color: #4338ca;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+
+        .reload-btn {
+            margin-top: 24px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .reload-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
         .error-message {
             background: #fef2f2;
             border: 1px solid #fecaca;
@@ -314,7 +443,40 @@
                     <div class="result-card">
                         <div class="score-circle" id="scoreCircle">0%</div>
                         <div class="result-category" id="resultCategory">-</div>
-                        <p class="result-description">Based on TF-IDF cosine similarity analysis</p>
+                        <p class="result-description">AI-Powered Resume Analysis</p>
+                        <div class="provider-badge" id="providerBadge">OpenAI</div>
+                        
+                        <div class="result-summary" id="resultSummary"></div>
+                        
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Experience Match</strong></td>
+                                    <td><span class="experience-badge" id="experienceMatch">-</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Matched Skills</strong></td>
+                                    <td id="matchedSkills">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Missing Skills</strong></td>
+                                    <td id="missingSkills">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <button type="button" class="reload-btn" id="reloadBtn">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Analyze Another
+                        </button>
                     </div>
                 </div>
             </div>
@@ -332,6 +494,34 @@
         const resultContainer = document.getElementById('resultContainer');
         const scoreCircle = document.getElementById('scoreCircle');
         const resultCategory = document.getElementById('resultCategory');
+        const reloadBtn = document.getElementById('reloadBtn');
+
+        // Reload button - reset form for new analysis
+        reloadBtn.addEventListener('click', () => {
+            // Reset form
+            form.reset();
+            
+            // Reset file upload area
+            fileName.textContent = 'No file selected';
+            uploadArea.classList.remove('has-file');
+            
+            // Hide results and errors
+            resultContainer.classList.remove('show');
+            errorMessage.classList.remove('show');
+            
+            // Reset result display
+            scoreCircle.textContent = '0%';
+            scoreCircle.style.background = '#e5e7eb';
+            resultCategory.textContent = '-';
+            resultCategory.style.color = '#6b7280';
+            document.getElementById('resultSummary').textContent = '';
+            document.getElementById('experienceMatch').textContent = '-';
+            document.getElementById('matchedSkills').textContent = '-';
+            document.getElementById('missingSkills').textContent = '-';
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
 
         // File upload handling
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -395,6 +585,38 @@
                 scoreCircle.style.background = data.color;
                 resultCategory.textContent = data.category;
                 resultCategory.style.color = data.color;
+                
+                // Show summary
+                document.getElementById('resultSummary').textContent = data.summary || 'No summary available';
+                
+                // Show provider
+                document.getElementById('providerBadge').textContent = data.provider || 'AI';
+                
+                // Show experience match
+                const expMatch = document.getElementById('experienceMatch');
+                expMatch.textContent = data.experience_match || 'Unknown';
+                expMatch.className = 'experience-badge experience-' + (data.experience_match || 'moderate');
+                
+                // Show matched skills
+                const matchedSkillsEl = document.getElementById('matchedSkills');
+                if (data.matched_skills && data.matched_skills.length > 0) {
+                    matchedSkillsEl.innerHTML = data.matched_skills.map(skill => 
+                        `<span class="skill-tag skill-matched">${skill}</span>`
+                    ).join('');
+                } else {
+                    matchedSkillsEl.innerHTML = '<span style="color: #9ca3af;">None identified</span>';
+                }
+                
+                // Show missing skills
+                const missingSkillsEl = document.getElementById('missingSkills');
+                if (data.missing_skills && data.missing_skills.length > 0) {
+                    missingSkillsEl.innerHTML = data.missing_skills.map(skill => 
+                        `<span class="skill-tag skill-missing">${skill}</span>`
+                    ).join('');
+                } else {
+                    missingSkillsEl.innerHTML = '<span style="color: #9ca3af;">None identified</span>';
+                }
+                
                 resultContainer.classList.add('show');
 
             } catch (error) {
