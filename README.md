@@ -1,102 +1,158 @@
 # Resume Relevancy Analyzer
 
-A tool that analyzes how well a resume matches a job description using TF-IDF cosine similarity. Available as a web app or standalone desktop application.
+AI-powered tool that analyzes how well a resume matches a job description using OpenAI GPT-4o-mini and semantic embeddings. Available as a web app or standalone desktop application.
 
 ## Features
 
-- Paste job descriptions in the left panel
-- Upload resumes (PDF, DOCX, or TXT) in the right panel
-- Get instant relevancy score with match category (Strong/Moderate/Weak)
+- **AI-Powered Analysis** — Uses OpenAI GPT-4o-mini for intelligent matching
+- **Semantic Similarity** — OpenAI embeddings for deep understanding
+- **Detailed Results** — Shows matched skills, missing skills, and experience match
+- **Multiple Formats** — Supports PDF, DOCX, and TXT resumes
+- **Fallback Mode** — Works without API key using TF-IDF (less accurate)
 
 ## Requirements
 
 - Python 3.x
 - pipenv
+- OpenAI API Key (optional, but recommended for best accuracy)
 
-## Installation
+## Quick Start
 
 ```bash
-# Install pipenv if you don't have it
-pip install pipenv
-
 # Install dependencies
-pipenv install
-```
+./scripts/install.sh
 
-## Usage
+# Or using make
+make install
 
-### Web App (Development)
+# Add your OpenAI API key to .env
+echo "OPENAI_API_KEY=sk-your-key-here" > .env
 
-```bash
-pipenv run python app.py
+# Run the app
+make run
 ```
 
 Open http://127.0.0.1:5000 in your browser.
 
-### Desktop App (Development)
+## Available Commands
+
+Run `make help` to see all available commands:
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install all dependencies using pipenv |
+| `make run` | Run the Flask web application |
+| `make build-mac` | Build macOS .app bundle |
+| `make build-win` | Build Windows .exe (run on Windows) |
+| `make dmg` | Create macOS .dmg installer |
+| `make clean` | Remove build artifacts |
+| `make help` | Show help message |
+
+## Scripts
+
+Helper scripts are available in the `scripts/` directory:
+
+| Script | Description |
+|--------|-------------|
+| `./scripts/install.sh` | Install dependencies and setup .env |
+| `./scripts/run.sh` | Run the web application |
+| `./scripts/build-mac.sh` | Build macOS app with optional DMG |
+| `./scripts/build-win.sh` | Build Windows executable |
+
+## Configuration
+
+Copy `.env.sample` to `.env` and add your API key:
 
 ```bash
-pipenv run python desktop_app.py
+cp .env.sample .env
 ```
 
-## Building Standalone App
+Edit `.env`:
+```
+OPENAI_API_KEY=sk-your-openai-api-key-here
+```
+
+## Building Standalone Apps
 
 ### macOS (.app and .dmg)
 
-**Step 1: Build the .app**
+**Option 1: Using Make (Recommended)**
 
 ```bash
-# Install dependencies (includes pyinstaller and pywebview)
-pipenv install
+# Build .app only
+make build-mac
 
-# Build the app
-pipenv run pyinstaller build_app.spec --clean
+# Build .app and create .dmg
+make dmg
 ```
 
-The `.app` will be created at: `dist/Resume Relevancy Analyzer.app`
-
-**Step 2: Create DMG for distribution**
+**Option 2: Using Script**
 
 ```bash
-hdiutil create -volname "Resume Relevancy Analyzer" -srcfolder "dist/Resume Relevancy Analyzer.app" -ov -format UDZO ResumeAnalyzer.dmg
+./scripts/build-mac.sh
 ```
 
-This creates `ResumeAnalyzer.dmg` which you can share with others.
-
-**Alternative: Use the build script**
-
-```bash
-chmod +x build.sh
-./build.sh
-```
+**Output:**
+- `.app` bundle: `dist/Resume Relevancy Analyzer.app`
+- DMG installer: `ResumeAnalyzer.dmg`
 
 ### Windows (.exe)
 
-> **Note:** Must be run on a Windows machine.
+> ⚠️ **Note:** Must be run on a Windows machine. Cross-compilation is not supported.
 
-**Step 1: Install dependencies**
-
-```bash
-pip install pipenv
-pipenv install
-```
-
-**Step 2: Build the executable**
+**Option 1: Using Make**
 
 ```bash
-pipenv run pyinstaller build_app.spec --clean
+make build-win
 ```
 
-The `.exe` will be created at: `dist/ResumeAnalyzer/ResumeAnalyzer.exe`
+**Option 2: Using Script (Git Bash/WSL)**
 
-**Step 3: Distribute**
+```bash
+./scripts/build-win.sh
+```
 
-You can zip the entire `dist/ResumeAnalyzer/` folder and share it. Users run `ResumeAnalyzer.exe` to launch the app.
+**Option 3: Manual Build**
+
+```bash
+pipenv run pyinstaller --clean --onefile --windowed ^
+    --name "ResumeAnalyzer" ^
+    --add-data "templates;templates" ^
+    --add-data "static;static" ^
+    desktop_app.py
+```
+
+**Output:** `dist/ResumeAnalyzer.exe`
+
+**Distribution:** Zip the `dist/ResumeAnalyzer/` folder and share. Users run `ResumeAnalyzer.exe`.
 
 ## Match Categories
 
-| Score | Category |
-|-------|----------|
-| > 70% | Strong Match |
-| 40-70% | Moderate Match |
-| < 40% | Weak Match |
+| Score | Category | Description |
+|-------|----------|-------------|
+| > 70% | Strong Match | Excellent fit for the role |
+| 40-70% | Moderate Match | Good potential, some gaps |
+| < 40% | Weak Match | Significant skill gaps |
+
+## Project Structure
+
+```
+python-ar/
+├── app.py              # Flask web application
+├── desktop_app.py      # Desktop app wrapper (pywebview)
+├── build_app.spec      # PyInstaller configuration
+├── MakeFile            # Build automation
+├── Pipfile             # Python dependencies
+├── .env.sample         # Environment variables template
+├── templates/          # HTML templates
+├── static/             # Static assets (favicon)
+└── scripts/            # Helper scripts
+    ├── install.sh
+    ├── run.sh
+    ├── build-mac.sh
+    └── build-win.sh
+```
+
+## License
+
+MIT
